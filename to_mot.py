@@ -12,18 +12,11 @@ SESSION_DICT = {
     5: '1000_1030',  # 5 is equivalent to 1000_1030
 }
 
-VEHICLE_TYPE = {
-    "Car": 0,
-    "Bus": 1,
-    "Taxi": 0,
-    "Heavy Vehicle": 1,
-    "Medium Vehicle": 0,
-    "Motorcycle": -1,
-}
 
-
-def csv_to_mot(frame_n: int, anott_file: str):
+def csv_to_mot(frame_n: int, anott_file: str, remove_motorcycles=False):
     df = pd.read_csv(anott_file)
+    if remove_motorcycles:
+        df = df.drop(df[df["Type"] == "Motorcycle"].index)
     n = len(df["Type"])
     return pd.DataFrame({
         "frame": [frame_n] * n,
@@ -47,18 +40,23 @@ if __name__ == "__main__":
                         help='session number from 1 to 5')
     parser.add_argument('--drone', type=int, choices=range(1, 11), default=6,
                         help='A single drone number from 1 to 10')
+    parser.add_argument('--remove_motorcycles', type=bool, default=False,
+                        help='Whether to remove motorcycles from the mot conversion')
 
     args = parser.parse_args()
     drone = args.drone
     session = args.session
     basedir = args.base_dir
+    remove_motorcycles = args.remove_motorcycles
 
     annot_dir = os.path.join(basedir, "20181029_D{:d}_{}".format(
         drone, SESSION_DICT[session]), "Annotations")
     anott_files = sorted([os.path.join(annot_dir, f) for f in os.listdir(
         annot_dir) if f.endswith("_upright.csv")])
 
-    df = pd.concat([csv_to_mot(n, anott_file)
+    df = pd.concat([csv_to_mot(n, anott_file, remove_motorcycles)
                    for n, anott_file in enumerate(anott_files, 1)])
 
-    df.to_csv(f"{SESSION_DICT[session]}_D{drone}_mot.txt", header=False, index=False)
+    filename = f"{SESSION_DICT[session]}_D{drone}_mot.txt" if not remove_motorcycles \
+        else f"{SESSION_DICT[session]}_D{drone}_RM_mot.txt"
+    df.to_csv(filename, header=False, index=False)
